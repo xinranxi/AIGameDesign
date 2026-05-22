@@ -2,3 +2,5 @@ Gen1: 创世纪完成 - 低语迷城(AI城主)设计。fitness=70。本地LLM作
 Gen2: 参数微调修复 - 完善REST状态转换、补充超时分级处理、实现人格安全过滤。M002自动降级和M006双轨战斗显著提升鲁棒性。fitness=72(novelty=78)。3个LOW瑕疵待修复。
 
 2026-05-22T15:56:32.203849 | Gen3: 激进重构 | fitness:72.4 | top_flaw:none | novelty:70
+
+2026-05-22T15:57:08.127143 | Gen4: 激进重构 | fitness:76.4 | top_flaw:none | novelty:84
