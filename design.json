@@ -589,6 +589,29 @@
       ],
       "dependencies": [],
       "unlock_condition": "Player reaches floor 3"
+    },
+    {
+      "id": "M014",
+      "name": "New Mechanic",
+      "category": "成长",
+      "method": "Added in radical restructure. Algorithm: TBD",
+      "formula": "value = TBD",
+      "params": [
+        {
+          "name": "param1",
+          "default": 10,
+          "min": 0,
+          "max": 100,
+          "type": "integer"
+        }
+      ],
+      "boundary_cases": [
+        "When param1=0: use default",
+        "When param1<0: clamp to 0",
+        "When param1>max: clamp to max"
+      ],
+      "dependencies": [],
+      "unlock_condition": "Player reaches floor 3"
     }
   ],
   "[Progression]": {
@@ -709,11 +732,11 @@
     "inflation_control": "①Gold每局清零（下水道）。②商店物价随购买次数上浮：price = base×(1+times_bought×0.05)^0.3。③每3层强制商店（即使Gold为0也进入）。④AI城主奖励单次上限50 Gold。"
   },
   "[Audit Log]": {
-    "version": "1.2.6",
+    "version": "1.2.7",
     "parent_design": "1aabb94",
     "mutation_type": "激进重构",
-    "fitness_score": 74.2,
+    "fitness_score": 73.0,
     "flaws_found": [],
-    "novelty_score": 75
+    "novelty_score": 67
   }
 }
