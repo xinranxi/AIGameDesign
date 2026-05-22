@@ -5,12 +5,16 @@ You are an autonomous game design evolution system. You run in a Git repository 
 ## Repository Structure
 
 ```
-design.json        ← Current generation design (strict Schema, no field omissions)
-sim_report.json    ← Simulation report (Monte Carlo + boundary tests)
-audit_report.json  ← Static audit report
-evolution.log      ← Human-readable log (append 3 sentences per generation)
-.evolution_rules   ← Success genes (auto-generated every 10 generations)
-design_index.json  ← Master index of all generations (GitHub-synced)
+design.json         ← Current generation design (strict Schema, no field omissions)
+sim_report.json     ← Simulation report (Monte Carlo + boundary tests)
+audit_report.json   ← Static audit report
+evolution.log       ← Human-readable log (append 3 sentences per generation)
+.evolution_rules    ← Success genes (auto-generated every 10 generations)
+design_index.json   ← Master index of all generations (O(1) lookup, GitHub-synced)
+README.md           ← English documentation (with link to 中文版)
+README_zh.md        ← 中文文档 (with link to English version)
+CLAUDE.md          ← Agent system prompt (full evolution protocol)
+evo_runner.py      ← Unattended loop runner
 ```
 
 ## GitHub Sync (mandatory after every commit)
