@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "last_updated": "2025-06-02",
-  "total_generations": 2,
+  "total_generations": 3,
   "generations": {
     "Gen0": {
       "commit": "1e1cae1",
@@ -11,9 +11,16 @@
       "genre": "Roguelike",
       "mutation_type": "创世纪",
       "parent": null,
-      "tags": ["roguelike", "ai-narrative", "first-attempt"],
+      "tags": [
+        "roguelike",
+        "ai-narrative",
+        "first-attempt"
+      ],
       "fitness_trend_at_creation": "n/a",
-      "top_mechanics": ["M001: LLM Narrative", "M002: Model Switcher"],
+      "top_mechanics": [
+        "M001: LLM Narrative",
+        "M002: Model Switcher"
+      ],
       "top_flaw": "economy_unvalidated"
     },
     "Gen1": {
@@ -24,9 +31,18 @@
       "genre": "AI驱动叙事, Roguelike, 文字冒险",
       "mutation_type": "创世纪",
       "parent": "1e1cae1",
-      "tags": ["ai城主", "本地LLM", "ReAct", "persona-switch"],
+      "tags": [
+        "ai城主",
+        "本地LLM",
+        "ReAct",
+        "persona-switch"
+      ],
       "fitness_trend_at_creation": "35→70 (+35)",
-      "top_mechanics": ["M001: LLM城主", "M003: Dungeon FSM", "M005: AI Persona"],
+      "top_mechanics": [
+        "M001: LLM城主",
+        "M003: Dungeon FSM",
+        "M005: AI Persona"
+      ],
       "top_flaw": "narrative_quality_model_dependent"
     },
     "Gen2": {
@@ -37,39 +53,81 @@
       "genre": "AI驱动叙事, Roguelike, 文字冒险",
       "mutation_type": "参数微调",
       "parent": "1aabb94",
-      "tags": ["rest-state", "timeout-hierarchy", "persona-safety"],
+      "tags": [
+        "rest-state",
+        "timeout-hierarchy",
+        "persona-safety"
+      ],
       "fitness_trend_at_creation": "70→72 (+2)",
-      "top_mechanics": ["M002: Auto-Degrade", "M006: Dual-Rail Combat", "M007: Context Manager"],
+      "top_mechanics": [
+        "M002: Auto-Degrade",
+        "M006: Dual-Rail Combat",
+        "M007: Context Manager"
+      ],
       "top_flaw": "persona_switch_abuse_risk"
+    },
+    "Gen3": {
+      "commit": "b46b051",
+      "fitness": 72.4,
+      "novelty": 70,
+      "title": "低语迷城",
+      "genre": "AI驱动叙事, Roguelike, 文字冒险",
+      "mutation_type": "激进重构",
+      "parent": "7e359ed",
+      "tags": [],
+      "top_mechanics": [
+        "M006",
+        "M007",
+        "M008"
+      ],
+      "top_flaw": "none",
+      "fitness_trend_at_creation": "Gen2→Gen3"
     }
   },
-  "elite_designs": ["1aabb94", "4fdcf55"],
+  "elite_designs": [
+    "1aabb94",
+    "4fdcf55"
+  ],
   "dead_end_branches": [],
   "evolution_rules_lines": 0,
-  "github_synced": ["design.json", "sim_report.json", "audit_report.json", "evolution.log", "CLAUDE.md", "evo_runner.py", ".evolution_rules"],
+  "github_synced": [
+    "design.json",
+    "sim_report.json",
+    "audit_report.json",
+    "evolution.log",
+    "CLAUDE.md",
+    "evo_runner.py",
+    ".evolution_rules"
+  ],
   "search_index": {
     "by_genre": {
-      "AI驱动叙事": ["Gen1", "Gen2"],
-      "Roguelike": ["Gen0", "Gen1", "Gen2"],
-      "文字冒险": ["Gen1", "Gen2"]
+      "Roguelike": [
+        "Gen0",
+        "Gen1",
+        "Gen2",
+        "Gen3"
+      ],
+      "AI驱动叙事": [
+        "Gen1",
+        "Gen2",
+        "Gen3"
+      ],
+      "文字冒险": [
+        "Gen1",
+        "Gen2",
+        "Gen3"
+      ]
     },
-    "by_mechanic_id": {
-      "M001": ["Gen0", "Gen1", "Gen2"],
-      "M002": ["Gen0", "Gen1", "Gen2"],
-      "M003": ["Gen1", "Gen2"],
-      "M004": ["Gen1", "Gen2"],
-      "M005": ["Gen1", "Gen2"],
-      "M006": ["Gen2"],
-      "M007": ["Gen2"]
-    },
+    "by_mechanic_id": {},
     "by_fitness_bucket": {
-      "90-100": [],
-      "80-89": [],
-      "70-79": ["Gen1", "Gen2"],
-      "60-69": [],
-      "50-59": [],
-      "40-49": [],
-      "30-39": ["Gen0"]
+      "30-39": [
+        "Gen0"
+      ],
+      "70-79": [
+        "Gen1",
+        "Gen2",
+        "Gen3"
+      ]
     }
   },
   "context_window": {
