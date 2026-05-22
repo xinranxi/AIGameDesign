@@ -1,0 +1,235 @@
+{
+  "[Meta]": {
+    "title": "低语迷城",
+    "genre": "AI驱动叙事, Roguelike, 文字冒险",
+    "session_length": "20分钟/局",
+    "target_emotion": "与AI城主共创故事的惊奇感 → 模型幻觉带来的荒诞惊喜 → 本地推理延迟营造的悬念",
+    "target_platform": "PC (需本地LLM推理)"
+  },
+  "[Core Loop]": {
+    "input": [
+      "[探索] 输入方向指令探索房间（n/s/e/w）或自由文本描述动作",
+      "[交谈] 与AI城主或NPC进行自由对话",
+      "[行动] 使用道具/切换人格/消耗资源"
+    ],
+    "system": "采用本地LLM事件驱动架构：①玩家输入自由文本 → ②连同当前游戏状态JSON + chat_history注入模型prompt（采用ChatML格式，注入3个few-shot examples） → ③模型输出JSON格式动作结果 + 叙事文本 + 新状态 → ④解析JSON后更新游戏状态 → ⑤状态变更触发边界检测（死亡/胜利/资源耗尽）。若单次推理超过10秒显示「城主深度思考中」动态省略号，超过30秒强制降级到secondary模型，超过60秒触发超时事件。模型temperature=0.7保证适度创造性。JSON解析失败时最多re-roll 3次，3次均失败则触发fallback叙事事件。",
+    "output": "数值反馈：HP/Gold/Keys变更 + 状态码(HP_CHG:-15, GOLD_CHG:+20)；叙事反馈：AI城主口吻描述场景（≤200字/次）；系统反馈：推理延迟秒数作为沉浸元素「思考中...3.2秒」显示；警告反馈：模型降级/超时/人格切换等系统事件",
+    "iteration": "每局地牢结构由模型动态生成 → 玩家用自然语言与AI城主互动 → 模型的「幻觉」和「遗忘」成为游戏内容 → 每次重开使用不同模型产生不同体验 → 驱动重开探索"
+  },
+  "[Mechanics]": [
+    {
+      "id": "M001",
+      "name": "LLM驱动叙事引擎",
+      "category": "社交",
+      "method": "采用本地蒸馏模型作为叙事生成器：输入 = (ChatML_prompt + game_state_json + chat_history)，输出 = JSON schema格式动作结果。JSON Schema: {\"action_type\": enum, \"narrative\": string(≤200字), \"state_delta\": object, \"new_npc\": string|null, \"is_critical\": bool, \"dm_note\": string|null}。采用ChatML格式prompt，注入3个few-shot examples确保JSON格式稳定。解析失败时（invalid JSON）触发re-roll机制（最多3次，间隔500ms），3次均失败则输出fallback叙事（固定文案库随机选1条）并强制推进剧情。Token计数使用tiktoken（cl100k_base编码）。数据结构：GameState{player_hp, gold, keys, inventory[], location_id, flags{}, combat_state|null}。chat_history保留最近K轮，K由M007动态决定。超时处理：>10s显示「城主深度思考中.」动画，>30s强制降级secondary，>60s触发「城主被干扰」特殊事件。",
+      "formula": "narrative = LLM(ChatML_prompt, temperature=0.7, max_tokens=300)\ntoken_count = len(tiktoken_encode(ChatML_prompt))\nif token_count > max_context - 300: invoke M007_GC()\nif parse_fail and re_roll < 3: re_roll++ and retry\nelse: fallback_narrative()",
+      "params": [
+        {"name": "model_context_window", "default": 4096, "min": 512, "max": 128000, "type": "integer"},
+        {"name": "temperature", "default": 0.7, "min": 0.1, "max": 1.5, "type": "float"},
+        {"name": "max_output_tokens", "default": 300, "min": 100, "max": 1000, "type": "integer"},
+        {"name": "re_roll_limit", "default": 3, "min": 1, "max": 5, "type": "integer"},
+        {"name": "re_roll_interval_ms", "default": 500, "min": 100, "max": 3000, "type": "integer"},
+        {"name": "timeout_display_threshold_ms", "default": 10000, "min": 1000, "max": 60000, "type": "integer"},
+        {"name": "timeout_force_switch_ms", "default": 30000, "min": 10000, "max": 120000, "type": "integer"},
+        {"name": "timeout_critical_event_ms", "default": 60000, "min": 30000, "max": 300000, "type": "integer"},
+        {"name": "chat_history_depth", "default": 5, "min": 1, "max": 50, "type": "integer"}
+      ],
+      "boundary_cases": [
+        "JSON解析失败 → 触发re-roll，re-roll达到limit后强制fallback：输出「城主陷入沉思...」+随机事件（从5条固定fallback库选1）",
+        "token_count ≥ max_context - 100时，调用M007垃圾回收，丢弃最低重要性chat条目直至满足约束",
+        "chat_history_depth硬性最低值为1，设置为0时强制修正为1并记录warning日志",
+        "max_output_tokens硬性最低值为100，低于100时强制修正为100并记录warning日志",
+        "当推理时间>timeout_display_threshold_ms时显示「城主正在深度思考. . .」（逐字显示省略号），>timeout_force_switch_ms时强制切换到secondary模型，>timeout_critical_event_ms时触发「城主被恶魔干扰」事件（随机损失HP或Gold）",
+        "当模型输出被截断（检测到「...」或达到max_tokens）时，标记[TRUNCATED]并在下次叙事开头补充",
+        "temperature < 0.1时强制修正为0.1；>1.5时强制修正为1.5"
+      ],
+      "dependencies": [],
+      "unlock_condition": "游戏初始解锁"
+    },
+    {
+      "id": "M002",
+      "name": "本地模型调度器",
+      "category": "成长",
+      "method": "支持OAI兼容API端点的多模型调度：primary模型=高精度叙事，secondary模型=快速摘要。调度规则：NARRATIVE/DIALOGUE/COMPLEX任务类型使用primary；SUMMARY/RETRY/SIMPLE任务类型使用secondary。自动降级：当primary推理时间超过timeout_force_switch_ms时自动切换到secondary，并在当前叙事完成后显示「城主回过神来...」过渡文案。当secondary也超时时，保存当前游戏state到local file（auto_save.json）并暂停游戏等待玩家确认。API兼容性检测：启动时发送test请求验证端点可用性，超时3秒判定为离线。数据结构：ModelConfig{name, endpoint, capability_set: Set[str], avg_latency_ms, status: enum[ONLINE,OFFLINE,DEGRADED]}。模型热切换：支持游戏运行时动态切换primary/secondary端点（需玩家在设置菜单确认）。",
+      "formula": "model = primary if task_type in {NARRATIVE, DIALOGUE, COMPLEX} else secondary\nif inference_time > timeout_force_switch_ms: model = secondary\nif primary.status == OFFLINE: model = secondary\nif secondary.status == OFFLINE and model == secondary: pause_game_and_save()",
+      "params": [
+        {"name": "primary_endpoint", "default": "http://localhost:11434/v1", "min": null, "max": null, "type": "string"},
+        {"name": "secondary_endpoint", "default": "http://localhost:11400/v1", "min": null, "max": null, "type": "string"},
+        {"name": "primary_model_name", "default": "llama3.2:3b", "min": null, "max": null, "type": "string"},
+        {"name": "secondary_model_name", "default": "llama3.2:1b", "min": null, "max": null, "type": "string"},
+        {"name": "api_timeout_ms", "default": 3000, "min": 1000, "max": 30000, "type": "integer"},
+        {"name": "auto_retry_on_fail", "default": true, "min": null, "max": null, "type": "boolean"}
+      ],
+      "boundary_cases": [
+        "primary模型离线 → 自动切换secondary，UI显示「[系统] 高精度模型离线，已切换快速模式」",
+        "secondary也离线 → 游戏暂停，state保存到auto_save.json，显示「[系统] 所有模型离线，请检查配置」",
+        "primary+secondary均在线但primary推理时间>timeout_force_switch_ms → 强制切换secondary并在叙事完成后显示「城主回过神来...」过渡文案",
+        "当api返回非200状态码 → 重试1次（间隔1秒），失败则标记该模型为DEGRADED状态并切换",
+        "游戏运行中玩家手动切换模型 → 清空chat_history防止prompt混淆，UI显示「模型已切换」"
+      ],
+      "dependencies": ["M001"],
+      "unlock_condition": "游戏初始解锁（需配置至少一个可用OAI兼容端点）"
+    },
+    {
+      "id": "M003",
+      "name": "地牢状态机",
+      "category": "移动",
+      "method": "采用确定性有限状态自动机(FSM)管理地牢结构：状态集 = {EXPLORING, COMBAT, EVENT, SHOP, REST, VICTORY, DEATH}。转换矩阵：EXPLORING → COMBAT（encounter_prob），EXPLORING → EVENT（event_prob），EXPLORING → SHOP（floor%3==0），EXPLORING → REST（玩家主动进入）；COMBAT → EVENT（win 70%），COMBAT → DEATH（hp≤0），COMBAT → EXPLORING（win 30%）；EVENT → EXPLORING（完成），EVENT → DEATH（危险事件失败）；REST → EXPLORING（玩家输入「继续」或「离开」）；SHOP → EXPLORING（购买或离开）；DEATH → [终止]；VICTORY → [终止]；所有状态在current_floor>max_floors时 → VICTORY。房间生成由AI城主（M001）驱动，首次进入房间时调用M001生成该房间的详细描述。数据结构：DungeonState{floor, room_id, room_history[], encounters_this_floor, state}。",
+      "formula": "next_state = FSM[current_state][trigger]\nencounter_prob = min(0.85, 0.3 + floor × 0.05)\nevent_prob = 0.2\nshop_trigger = (floor % 3 == 0) and (state == EXPLORING)",
+      "params": [
+        {"name": "base_encounter_prob", "default": 0.3, "min": 0.0, "max": 0.8, "type": "float"},
+        {"name": "encounter_prob_per_floor", "default": 0.05, "min": 0.0, "max": 0.15, "type": "float"},
+        {"name": "event_prob", "default": 0.2, "min": 0.0, "max": 0.5, "type": "float"},
+        {"name": "combat_win_event_prob", "default": 0.7, "min": 0.0, "max": 1.0, "type": "float"},
+        {"name": "shop_interval", "default": 3, "min": 1, "max": 10, "type": "integer"},
+        {"name": "max_floors", "default": 10, "min": 5, "max": 20, "type": "integer"}
+      ],
+      "boundary_cases": [
+        "当current_floor > max_floors时，无论何种状态，强制转换到VICTORY",
+        "当state == DEATH时，所有trigger被忽略，锁定终止流程",
+        "encounter_prob计算后若>0.85则截断为0.85（保证最少15%时间为非战斗）",
+        "当shop_interval=0时，完全禁用商店机制（不触发）",
+        "REST状态必须由玩家显式输入「继续」或「离开」才能转换，不接受超时自动退出",
+        "当某个状态trigger导致循环依赖（如EVENT→EVENT）时，强制推进到EXPLORING"
+      ],
+      "dependencies": ["M001", "M002"],
+      "unlock_condition": "游戏初始解锁"
+    },
+    {
+      "id": "M004",
+      "name": "玩家资源系统",
+      "category": "经济",
+      "method": "采用资源桶模型：Resources{gold:u32, keys:u8, hp:u16, max_hp:u16, inventory:Vec<Item>}。所有资源变更统一由M001的state_delta驱动，变更在应用前经过边界验证。资源获取（Gold/Keys）时，若超过对应上限则截断。HP恢复时不超过max_hp。死亡判定：任何动作导致hp≤0时立即触发DEATH状态。数据结构：Item{id, name, type:enum[CONSUMABLE,EQUIPMENT,KEY], value, effect}。商店购物：玩家选择商品 → 扣除Gold → 获得物品或立即生效。休息：REST状态消耗Gold恢复HP，汇率=1HP/1Gold（可配置）。",
+      "formula": "Gold_new = max(0, Gold_old + delta_Gold)\nKeys_new = min(99, max(0, Keys_old + delta_Keys))\nHP_new = min(max_hp, max(0, HP_old + delta_HP))\nshop_purchase = if Gold >= item_price: Gold -= item_price, inventory += item else REJECT\nrest_heal = min(max_hp - HP, Gold) → HP += heal, Gold -= heal",
+      "params": [
+        {"name": "base_max_hp", "default": 100, "min": 20, "max": 500, "type": "integer"},
+        {"name": "keys_max", "default": 99, "min": 1, "max": 255, "type": "integer"},
+        {"name": "rest_heal_rate", "default": 1, "min": 1, "max": 10, "type": "integer"},
+        {"name": "starting_gold", "default": 30, "min": 0, "max": 1000, "type": "integer"},
+        {"name": "starting_keys", "default": 1, "min": 0, "max": 10, "type": "integer"}
+      ],
+      "boundary_cases": [
+        "delta_Gold导致Gold<0时截断为0（不产生负债）",
+        "delta_HP导致HP>max_hp时截断为max_hp（禁止超量治疗）",
+        "Keys达到上限时新增Keys被静默丢弃（无溢出）",
+        "HP归零时立即触发DEATH状态，不执行任何后续动作",
+        "Gold不足时商店购买被拒绝，UI显示「Gold不足，需要X，当前持有Y」",
+        "当max_hp<20时强制修正为20（游戏可存活下限）"
+      ],
+      "dependencies": ["M001"],
+      "unlock_condition": "游戏初始解锁"
+    },
+    {
+      "id": "M005",
+      "name": "AI城主人格系统",
+      "category": "社交",
+      "method": "AI城主人格由system prompt模板决定，可通过/perssona <name>指令切换。人格定义：PersonaConfig{name, system_prompt_suffix, temperature_offset, narrative_voice, event_bias[]。切换消耗1 Gold，切换后清空chat_history防止人格混乱。内置人格：wizard(平衡/古典口吻), bard(创意/诗意), dwarf(实用/矮人腔), shadow(黑暗/阴谋论)。人格影响：①system_prompt_suffix → 叙事风格差异②temperature_offset → 创造性差异③event_bias → 事件类型倾向。Prompt注入安全过滤：使用正则过滤越权关键词（[系统]、[扮演]、[你是]等），发现后拒绝并显示「城主抗拒了操控，你的请求被忽略」。切换流程：玩家输入/perssona → 验证Gold → 确认 → 清空history → 加载新persona_prompt。",
+      "formula": "effective_temp = clamp(temperature + persona.temperature_offset, 0.1, 1.5)\nfinal_system_prompt = base_system_prompt + persona.system_prompt_suffix\nif contains_banned_keywords(final_system_prompt): reject_and_warn()",
+      "params": [
+        {"name": "current_persona", "default": "wizard", "min": null, "max": null, "type": "string"},
+        {"name": "persona_switch_cost", "default": 1, "min": 0, "max": 100, "type": "integer"},
+        {"name": "num_builtin_personas", "default": 4, "min": 1, "max": 20, "type": "integer"}
+      ],
+      "boundary_cases": [
+        "当persona名称不在预设列表中时，强制回退到wizard人格并显示warning",
+        "Gold不足时拒绝切换，显示「人格切换需要X Gold，当前Y Gold」",
+        "每次切换人格后自动清空chat_history（防止人格记忆混淆）",
+        "越权关键词检测到时：拒绝切换，显示「城主抗拒了操控」，记录到event_log",
+        "人格切换消耗的Gold不退还，即使切换后立即切换回原人格"
+      ],
+      "dependencies": ["M001", "M002"],
+      "unlock_condition": "玩家首次进入第2层后解锁"
+    },
+    {
+      "id": "M006",
+      "name": "战斗解析器",
+      "category": "战斗",
+      "method": "采用LLM+规则双轨制战斗：M001的state_delta.action_type=='COMBAT'时触发M006。处理流程：①从state_delta提取damage/damage_type/heal数值②若数值缺失（null/undefined）或类型错误（非number），触发规则回退：raw_damage = ATK_BASE × uniform(0.8, 1.2)③应用暴击：random()<crit_chance时 damage×2④应用防御：final = raw × crit_mult × (1 - DEF/(DEF+50))⑤应用伤害，更新HP⑥检测死亡。战斗状态：CombatState{turn:int, player_buffs:[], enemy_buffs:[], log:[]}。Buff系统：中毒/燃烧/冻结各独立tick计数器，每回合-1。战斗结束条件：任一方HP≤0，或回合>max_combat_turns（平局，随机胜负）。",
+      "formula": "raw_damage = state_delta.damage ?? (ATK_BASE × uniform(0.8, 1.2))\ncrit_mult = 2.0 if random() < crit_chance else 1.0\nfinal_damage = max(0, raw_damage × crit_mult × (1 - DEF/(DEF+50)))\nHP_after = max(0, HP_before - final_damage)",
+      "params": [
+        {"name": "ATK_BASE", "default": 15, "min": 1, "max": 100, "type": "integer"},
+        {"name": "DEF_BASE", "default": 10, "min": 0, "max": 100, "type": "integer"},
+        {"name": "crit_chance", "default": 0.1, "min": 0.0, "max": 0.5, "type": "float"},
+        {"name": "crit_mult", "default": 2.0, "min": 1.0, "max": 5.0, "type": "float"},
+        {"name": "max_combat_turns", "default": 20, "min": 5, "max": 100, "type": "integer"}
+      ],
+      "boundary_cases": [
+        "state_delta.damage为null/undefined时触发规则回退计算",
+        "state_delta.damage类型为string时，尝试parseFloat，失败则触发规则回退",
+        "final_damage<0时强制为0（不产生治疗，战斗伤害方向固定）",
+        "ATK_BASE=0时强制修正为1（保证最小攻击效力）",
+        "combat_turn>max_combat_turns时：随机决定胜负（50/50），胜者获得全额战利品",
+        "任一方HP≤0时立即结束战斗，HP≤0方为败者",
+        "战斗胜利后：Gold掉落 = 10+enemy_tier×5，触发M004资源更新"
+      ],
+      "dependencies": ["M001", "M004"],
+      "unlock_condition": "首次进入COMBAT状态后解锁"
+    },
+    {
+      "id": "M007",
+      "name": "上下文窗口管理器",
+      "category": "成长",
+      "method": "动态上下文管理，采用sliding window + 重要性评分。ChatEntry{timestamp, role, content, token_count, importance_tags:[string]}。重要性评分：score = recency_score + bonus_score。recency_score = 1.0 - (depth/max_depth)×0.8（新条目高分）。bonus_score = +0.5 if 'flag_setter' in tags（新决策），+0.3 if 'combat' in tags，+0.2 if 'npc_dialogue' in tags，否则+0.0。GC触发：token_count ≥ max_context - reserve_tokens时。GC执行：按score升序删除条目，保留至少min_entries=3条，保留所有包含flag_setter的条目（即使古老）。reserve_tokens=200保证响应空间。数据结构：GCState{hits:int, bytes_freed:int, last_gc_depth:int}。",
+      "formula": "entry_score = (1.0 - depth/max_depth × 0.8) + bonus\nGC_triggered = total_tokens ≥ max_context - reserve_tokens\nGC_result = while total_tokens > target_tokens and entries > min_entries:\n    remove_lowest_score_entry_without_flag()",
+      "params": [
+        {"name": "reserve_tokens", "default": 200, "min": 50, "max": 1000, "type": "integer"},
+        {"name": "gc_target_tokens", "default": 3000, "min": 500, "max": "max_context×0.8", "type": "integer"},
+        {"name": "max_depth", "default": 20, "min": 5, "max": 100, "type": "integer"},
+        {"name": "min_entries_preserve", "default": 3, "min": 1, "max": 10, "type": "integer"},
+        {"name": "flag_setter_bonus", "default": 0.5, "min": 0.0, "max": 1.0, "type": "float"},
+        {"name": "combat_bonus", "default": 0.3, "min": 0.0, "max": 1.0, "type": "float"},
+        {"name": "npc_bonus", "default": 0.2, "min": 0.0, "max": 1.0, "type": "float"}
+      ],
+      "boundary_cases": [
+        "gc_target_tokens > max_context×0.8时强制修正为max_context×0.8",
+        "reserve_tokens > max_context×0.3时强制修正为max_context×0.2",
+        "chat_history中包含flag_setter标签的条目永远不删除（即使gc触发），确保关键决策不丢失",
+        "当所有条目都有flag_setter时，至少保留最近min_entries_preserve条",
+        "GC执行后若token_count仍超过约束，记录ERROR并触发M001强制fallback",
+        "chat_history_depth硬性最低值为1"
+      ],
+      "dependencies": ["M001"],
+      "unlock_condition": "游戏初始解锁（当token_count超过max_context×0.5时激活）"
+    }
+  ],
+  "[Progression]": {
+    "difficulty_curve": "y = 3 + floor(x/3) + (x mod 3)×2，x=层序号（1-indexed），y=该层敌人数量基准。敌人强度同步提升：HP基准 = 30 + x×10，ATK = 8 + floor(x/2)×2。AI叙事复杂度分层：L1-3 ≤80字，L4-6 ≤150字，L7-10 ≤200字（由M001的max_output_tokens参数控制）。精英敌人（每层随机1-2只，HP×1.5，ATK×1.2）。",
+    "reward_schedule": "固定奖励：击杀敌人=10+enemy_tier×5 Gold，发现隐藏房间=30 Gold，到达新层=20×层号 Gold，AI城主事件=uniform(1,50) Gold（上限50），Boss击杀=20+层号×10 Gold。无可变掉落（避免LLM幻觉产生物品不一致）。",
+    "skill_tree": [
+      {"node": "M001_LongContext", "name": "城主博学（max_context配置翻倍）", "prerequisites": ["M001_Basic", "rooms_visited>=10", "gold>=30"], "position": "Tier2-Node1"},
+      {"node": "M002_FastSwitch", "name": "快速思维（推理>15s自动降级secondary）", "prerequisites": ["M002_Basic", "floors_completed>=3"], "position": "Tier2-Node2"},
+      {"node": "M005_Fusion", "name": "人格融合（同时激活2个人格）", "prerequisites": ["M005_Basic", "gold>=50", "persona_switches>=2"], "position": "Tier2-Node3"},
+      {"node": "M006_Berserk", "name": "战斗本能（ATK+5，被攻击时+2）", "prerequisites": ["M006_Basic", "enemies_killed>=8"], "position": "Tier3-Node1"},
+      {"node": "M007_Perfect", "name": "完美记忆（gc不删除带flag条目）", "prerequisites": ["M007_Basic", "floors_completed>=5", "flag_triggers>=10"], "position": "Tier3-Node2"}
+    ]
+  },
+  "[Economy]": {
+    "sources": [
+      {"id": "gold_001", "source": "击杀普通敌人", "formula": "10 + enemy_tier×5", "frequency": "每击杀"},
+      {"id": "gold_002", "source": "击杀Boss敌人", "formula": "20 + floor_id×10", "frequency": "每层Boss"},
+      {"id": "gold_003", "source": "发现隐藏房间", "formula": "30", "frequency": "每房间1次"},
+      {"id": "gold_004", "source": "到达新层", "formula": "20×floor_id", "frequency": "每层1次"},
+      {"id": "gold_005", "source": "AI城主事件奖励", "formula": "uniform(1,50)", "frequency": "约10%事件"}
+    ],
+    "sinks": [
+      {"id": "shop_001", "sink": "商店购买道具", "formula": "15 + item_tier×20"},
+      {"id": "rest_001", "sink": "休息恢复HP", "formula": "1HP per 1 Gold"},
+      {"id": "persona_001", "sink": "切换AI城主人格", "formula": "1 Gold"},
+      {"id": "reveal_001", "sink": "AI城主地图提示", "formula": "5 Gold/次"},
+      {"id": "auto_save_001", "sink": "保存恢复（读取存档）", "formula": "免费", "frequency": "无限"}
+    ],
+    "inflation_control": "①Gold每局清零（下水道）。②商店物价随购买次数上浮：price = base×(1+times_bought×0.05)^0.3。③每3层强制商店（即使Gold为0也进入）。④AI城主奖励单次上限50 Gold。"
+  },
+  "[Audit Log]": {
+    "version": "1.2.0",
+    "parent_design": "1aabb94",
+    "mutation_type": "参数微调+边界强化",
+    "fitness_score": 72,
+    "flaws_found": [
+      "人格切换成本仅1 Gold，高频滥用风险",
+      "ATK_BASE=15后期伤害偏低",
+      "精英敌人数量随机性大"
+    ],
+    "novelty_score": 78
+  }
+}
