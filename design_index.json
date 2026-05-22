@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "last_updated": "2025-06-02",
+  "total_generations": 2,
+  "generations": {
+    "Gen0": {
+      "commit": "1e1cae1",
+      "fitness": 35,
+      "novelty": 75,
+      "title": "AI Dungeon Crawler",
+      "genre": "Roguelike",
+      "mutation_type": "创世纪",
+      "parent": null,
+      "tags": ["roguelike", "ai-narrative", "first-attempt"],
+      "fitness_trend_at_creation": "n/a",
+      "top_mechanics": ["M001: LLM Narrative", "M002: Model Switcher"],
+      "top_flaw": "economy_unvalidated"
+    },
+    "Gen1": {
+      "commit": "1aabb94",
+      "fitness": 70,
+      "novelty": 92,
+      "title": "低语迷城",
+      "genre": "AI驱动叙事, Roguelike, 文字冒险",
+      "mutation_type": "创世纪",
+      "parent": "1e1cae1",
+      "tags": ["ai城主", "本地LLM", "ReAct", "persona-switch"],
+      "fitness_trend_at_creation": "35→70 (+35)",
+      "top_mechanics": ["M001: LLM城主", "M003: Dungeon FSM", "M005: AI Persona"],
+      "top_flaw": "narrative_quality_model_dependent"
+    },
+    "Gen2": {
+      "commit": "4fdcf55",
+      "fitness": 72,
+      "novelty": 78,
+      "title": "低语迷城",
+      "genre": "AI驱动叙事, Roguelike, 文字冒险",
+      "mutation_type": "参数微调",
+      "parent": "1aabb94",
+      "tags": ["rest-state", "timeout-hierarchy", "persona-safety"],
+      "fitness_trend_at_creation": "70→72 (+2)",
+      "top_mechanics": ["M002: Auto-Degrade", "M006: Dual-Rail Combat", "M007: Context Manager"],
+      "top_flaw": "persona_switch_abuse_risk"
+    }
+  },
+  "elite_designs": ["1aabb94", "4fdcf55"],
+  "dead_end_branches": [],
+  "evolution_rules_lines": 0,
+  "github_synced": ["design.json", "sim_report.json", "audit_report.json", "evolution.log", "CLAUDE.md", "evo_runner.py", ".evolution_rules"],
+  "search_index": {
+    "by_genre": {
+      "AI驱动叙事": ["Gen1", "Gen2"],
+      "Roguelike": ["Gen0", "Gen1", "Gen2"],
+      "文字冒险": ["Gen1", "Gen2"]
+    },
+    "by_mechanic_id": {
+      "M001": ["Gen0", "Gen1", "Gen2"],
+      "M002": ["Gen0", "Gen1", "Gen2"],
+      "M003": ["Gen1", "Gen2"],
+      "M004": ["Gen1", "Gen2"],
+      "M005": ["Gen1", "Gen2"],
+      "M006": ["Gen2"],
+      "M007": ["Gen2"]
+    },
+    "by_fitness_bucket": {
+      "90-100": [],
+      "80-89": [],
+      "70-79": ["Gen1", "Gen2"],
+      "60-69": [],
+      "50-59": [],
+      "40-49": [],
+      "30-39": ["Gen0"]
+    }
+  },
+  "context_window": {
+    "max_tokens": 32000,
+    "current_usage_estimate": 8000,
+    "compression_needed_at": 20000,
+    "last_compressed": null
+  }
+}
