@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "last_updated": "2025-06-02",
-  "total_generations": 5,
+  "total_generations": 6,
   "generations": {
     "Gen0": {
       "commit": "1e1cae1",
@@ -116,6 +116,23 @@
       ],
       "top_flaw": "none",
       "fitness_trend_at_creation": "Gen4→Gen5"
+    },
+    "Gen6": {
+      "commit": "acd401a",
+      "fitness": 72.8,
+      "novelty": 70,
+      "title": "低语迷城",
+      "genre": "AI驱动叙事, Roguelike, 文字冒险",
+      "mutation_type": "激进重构",
+      "parent": "61bb7fe",
+      "tags": [],
+      "top_mechanics": [
+        "M009",
+        "M010",
+        "M011"
+      ],
+      "top_flaw": "none",
+      "fitness_trend_at_creation": "Gen5→Gen6"
     }
   },
   "elite_designs": [
@@ -141,21 +158,24 @@
         "Gen2",
         "Gen3",
         "Gen4",
-        "Gen5"
+        "Gen5",
+        "Gen6"
       ],
       "AI驱动叙事": [
         "Gen1",
         "Gen2",
         "Gen3",
         "Gen4",
-        "Gen5"
+        "Gen5",
+        "Gen6"
       ],
       "文字冒险": [
         "Gen1",
         "Gen2",
         "Gen3",
         "Gen4",
-        "Gen5"
+        "Gen5",
+        "Gen6"
       ]
     },
     "by_mechanic_id": {},
@@ -168,7 +188,8 @@
         "Gen2",
         "Gen3",
         "Gen4",
-        "Gen5"
+        "Gen5",
+        "Gen6"
       ]
     }
   },
