@@ -1,75 +1,15 @@
 {
-  "[Sim Report]": {
-    "simulation_type": "蒙特卡洛推演 + 架构推演 + 边界测试",
-    "monte_carlo_rounds": 1000,
-    "summary": {
-      "avg_survival_floors": 5.1,
-      "avg_gold_earned": 158.7,
-      "avg_combat_rounds": 8.6,
-      "win_rate": 0.07,
-      "model_api_fail_rate": 0.02,
-      "json_parse_fail_rate": 0.05,
-      "avg_inference_latency_ms": 2100,
-      "gc_trigger_rate": 0.12,
-      "persona_switch_rate": 0.08
-    },
-    "flow_channel_analysis": {
-      "boredom_ratio": 0.12,
-      "anxiety_ratio": 0.35,
-      "flow_ratio": 0.53,
-      "assessment": "流比较 Gen1 提升显著（0.47→0.53），主要归功于 M002 自动降级减少了等待焦虑，战斗解析双轨制提高了胜负可预测性。"
-    },
-    "boundary_tests": [
-      {
-        "test": "max_output_tokens=100 (min boundary)",
-        "result": "叙事完整率100%，无截断，可接受",
-        "verdict": "PASS"
-      },
-      {
-        "test": "temperature=0.1 (low creativity)",
-        "result": "JSON稳定性99%，叙事重复率升高，5轮后玩家报告无聊感上升",
-        "verdict": "[WARN] 长期可玩性建议增加temperature或扩展人格系统"
-      },
-      {
-        "test": "temperature=1.5 (high creativity)",
-        "result": "JSON稳定性降至58%，叙事极度荒诞，模型幻觉成为主导体验",
-        "verdict": "[WARN] 非致命但建议限制在1.2以下"
-      },
-      {
-        "test": "chat_history_depth=1 (min)",
-        "result": "上下文严重丧失，城主无法记住1回合前的事件",
-        "verdict": "[WARN] 虽然可玩但体验显著下降"
-      },
-      {
-        "test": "timeout_force_switch_ms=30000 (max)",
-        "result": "玩家等待焦虑可控，极端slow模型下仍可接受",
-        "verdict": "PASS"
-      },
-      {
-        "test": "primary和secondary均离线",
-        "result": "游戏暂停，auto_save.json保存state，玩家可恢复",
-        "verdict": "PASS - 符合设计的graceful degradation"
-      },
-      {
-        "test": "combat_turn=20 (max boundary)",
-        "result": "长战斗可接受，50/50平局机制合理",
-        "verdict": "PASS"
-      },
-      {
-        "test": "encounter_prob>0.85",
-        "result": "截断到0.85，实际战斗比例约60%，仍有探索空间",
-        "verdict": "PASS"
-      }
-    ],
-    "numerical_score": 72,
-    "flags": [
-      "[WARN] temperature=1.5时JSON稳定性过低，建议添加M001动态temperature调整",
-      "[INFO] gc_trigger_rate=12%表明上下文管理开销可接受"
-    ],
-    "balance_issues": [
-      "人格切换成本极低（1 Gold），高频切换可能滥用，建议提升到5 Gold",
-      "战斗胜负受规则回退影响较大，ATK_BASE=15时后期敌人DEF偏高导致伤害偏低",
-      "每3层强制商店机制在高Gold时体验良好，但在低Gold时产生挫败感"
-    ]
-  }
+  "runs": 1000,
+  "wins": 283,
+  "deaths": 717,
+  "win_rate": 0.283,
+  "avg_turns": 67.5,
+  "flow_bored": 396,
+  "flow_anx": 0,
+  "flow": 604,
+  "flow_ratio": 0.604,
+  "avg_gold": 287.2,
+  "boundary_tests": [],
+  "numerical_score": 49,
+  "fatal": false
 }
